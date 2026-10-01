@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  RESERVAS
+  HOST
+}
+
+enum OperatingDayStatus {
+  OPEN
+  CLOSED
+}
+
+enum ScheduleStatus {
+  OPEN
+  CLOSED
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+  ARRIVED
+  ENTERED
+  LOST
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  ARRIVED
+  ENTERED
+  NO_SHOW
+  CANCELLED
+}
+
+enum NotificationType {
+  RESERVATION_CONFIRMATION
+  RESERVATION_UPDATED
+  RESERVATION_CANCELLED
+  AVAILABILITY_NOTIFICATION
+  WAITLIST_NOTIFICATION
+}
+
+enum NotificationChannel {
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  name                  String                     @db.VarChar(120)
+  email                 String                     @unique @db.VarChar(254)
+  passwordHash          String                     @db.VarChar(255)
+  role                  UserRole
+  active                Boolean                    @default(true)
+  createdAt             DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                   @updatedAt @db.Timestamptz(3)
+  auditLogs             AuditLog[]
+  statusChanges         ReservationStatusHistory[]
+  arrivals              Arrival[]
+  lostReservations      Reservation[]               @relation("LostBy")
+  createdReservations   Reservation[]               @relation("CreatedBy")
+}
+
+model Customer {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @db.VarChar(120)
+  email        String        @db.VarChar(254)
+  phone        String        @db.VarChar(30)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  reservations Reservation[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model OperatingDay {
+  id                   String             @id @default(uuid()) @db.Uuid
+  date                 DateTime           @unique @db.Date
+  prefix               String             @unique @db.VarChar(4)
+  reservationSequence Int                @default(0)
+  status               OperatingDayStatus @default(OPEN)
+  createdAt            DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime           @updatedAt @db.Timestamptz(3)
+  schedules            Schedule[]
+  reservations         Reservation[]
+  codedReservations    Reservation[]    @relation("CodeDay")
+}
+
+model Schedule {
+  id             String         @id @default(uuid()) @db.Uuid
+  operatingDayId String         @db.Uuid
+  startTime      String         @db.VarChar(5)
+  capacity       Int
+  status         ScheduleStatus @default(OPEN)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+  operatingDay   OperatingDay   @relation(fields: [operatingDayId], references: [id], onDelete: Restrict)
+  reservations   Reservation[]
+
+  @@unique([operatingDayId, startTime])
+  @@index([operatingDayId, status])
+}
+
+model Reservation {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  code               String                   @unique @db.VarChar(16)
+  sequenceNumber     Int
+  customerId         String                   @db.Uuid
+  operatingDayId     String                   @db.Uuid
+  codeOperatingDayId String                   @db.Uuid
+  scheduleId         String                   @db.Uuid
+  createdById        String?                  @db.Uuid
+  pax                Int
+  status             ReservationStatus        @default(CONFIRMED)
+  observations       String?                  @db.VarChar(2000)
+  lostArrivalTime    DateTime?                @db.Timestamptz(3)
+  lostContactPhone   String?                  @db.VarChar(30)
+  lostReason         String?                  @db.VarChar(1000)
+  lostAt             DateTime?                @db.Timestamptz(3)
+  lostById           String?                  @db.Uuid
+  availabilitySentAt DateTime?                @db.Timestamptz(3)
+  createdAt          DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                 @updatedAt @db.Timestamptz(3)
+  customer           Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  operatingDay       OperatingDay             @relation(fields: [operatingDayId], references: [id], onDelete: Restrict)
+  codeOperatingDay   OperatingDay             @relation("CodeDay", fields: [codeOperatingDayId], references: [id], onDelete: Restrict)
+  schedule           Schedule                 @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  createdBy          User?                    @relation("CreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lostBy             User?                    @relation("LostBy", fields: [lostById], references: [id], onDelete: SetNull)
+  statusHistory      ReservationStatusHistory[]
+  arrival            Arrival?
+  notifications      Notification[]
+  sourceWaitlist     WaitlistEntry[]
+
+  @@unique([codeOperatingDayId, sequenceNumber])
+  @@index([scheduleId, status])
+  @@index([operatingDayId, status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model ReservationStatusHistory {
+  id             String            @id @default(uuid()) @db.Uuid
+  reservationId  String            @db.Uuid
+  previousStatus ReservationStatus?
+  newStatus      ReservationStatus
+  changedById    String?           @db.Uuid
+  reason         String?           @db.VarChar(1000)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  reservation    Reservation      @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  changedBy      User?             @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([reservationId, createdAt])
+}
+
+model Arrival {
+  id           String       @id @default(uuid()) @db.Uuid
+  reservationId String      @unique @db.Uuid
+  arrivalTime  DateTime     @db.Timestamptz(3)
+  entryTime    DateTime?    @db.Timestamptz(3)
+  registeredById String     @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+  reservation  Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  registeredBy User         @relation(fields: [registeredById], references: [id], onDelete: Restrict)
+}
+
+model WaitlistEntry {
+  id                 String        @id @default(uuid()) @db.Uuid
+  name               String        @db.VarChar(120)
+  email              String        @db.VarChar(254)
+  phone              String        @db.VarChar(30)
+  pax                Int
+  arrivalTime        DateTime      @default(now()) @db.Timestamptz(3)
+  status             WaitlistStatus @default(WAITING)
+  observations       String?       @db.VarChar(2000)
+  sourceReservationId String?       @db.Uuid
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
+  sourceReservation  Reservation?  @relation(fields: [sourceReservationId], references: [id], onDelete: SetNull)
+  notifications      Notification[]
+
+  @@index([status, arrivalTime])
+  @@index([phone])
+}
+
+model Notification {
+  id              String              @id @default(uuid()) @db.Uuid
+  reservationId   String?             @db.Uuid
+  waitlistEntryId String?             @db.Uuid
+  type            NotificationType
+  channel         NotificationChannel @default(EMAIL)
+  recipient       String              @db.VarChar(254)
+  status          NotificationStatus  @default(PENDING)
+  errorMessage    String?             @db.VarChar(2000)
+  sentAt          DateTime?            @db.Timestamptz(3)
+  createdAt       DateTime             @default(now()) @db.Timestamptz(3)
+  reservation     Reservation?         @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  waitlistEntry   WaitlistEntry?       @relation(fields: [waitlistEntryId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  action    String   @db.VarChar(80)
+  entity    String   @db.VarChar(80)
+  entityId  String?  @db.VarChar(80)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model RestaurantSettings {
+  id                          String   @id @default("default") @db.VarChar(32)
+  restaurantName              String   @default("Isla Morada") @db.VarChar(120)
+  restaurantEmail             String   @default("") @db.VarChar(254)
+  restaurantPhone             String   @default("") @db.VarChar(30)
+  reservationToleranceMinutes Int      @default(25)
+  defaultScheduleCapacity     Int      @default(200)
+  timezone                    String   @default("America/Bogota") @db.VarChar(64)
+  updatedAt                   DateTime @updatedAt @db.Timestamptz(3)
+}

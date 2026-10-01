@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: isla-morada-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: isla_morada
+      POSTGRES_USER: isla_morada
+      POSTGRES_PASSWORD: isla_morada_dev
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U isla_morada -d isla_morada"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
