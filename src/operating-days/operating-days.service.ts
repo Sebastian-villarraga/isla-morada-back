@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { OperatingDayStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { localDateToUtcDate } from '../common/utils/date.util';
+import { bogotaToday, localDateToUtcDate } from '../common/utils/date.util';
 import { CreateOperatingDayDto } from './dto/create-operating-day.dto';
 import { UpdateOperatingDayDto } from './dto/update-operating-day.dto';
 
@@ -24,6 +24,18 @@ export class OperatingDaysService {
       },
       orderBy: { date: 'asc' },
     });
+  }
+
+  async publicDates(): Promise<string[]> {
+    const days = await this.prisma.operatingDay.findMany({
+      where: {
+        status: OperatingDayStatus.OPEN,
+        date: { gte: localDateToUtcDate(bogotaToday()) },
+      },
+      select: { date: true },
+      orderBy: { date: 'asc' },
+    });
+    return days.map((day) => day.date.toISOString().slice(0, 10));
   }
 
   async get(id: string) {

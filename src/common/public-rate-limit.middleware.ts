@@ -6,7 +6,8 @@ export class PublicRateLimitMiddleware implements NestMiddleware {
   private readonly requests = new Map<string, { count: number; expiresAt: number }>();
 
   use(request: Request, response: Response, next: NextFunction): void {
-    const key = `${request.ip ?? 'unknown'}:${request.path}`;
+    const routePath = request.path.replace(/^\/api(?=\/|$)/, '') || '/';
+    const key = `${request.ip ?? 'unknown'}:${routePath}`;
     const now = Date.now();
     const current = this.requests.get(key);
     if (!current || current.expiresAt <= now) {
@@ -19,7 +20,7 @@ export class PublicRateLimitMiddleware implements NestMiddleware {
       next();
       return;
     }
-    const limit = request.path === '/auth/login' ? 10 : 60;
+    const limit = routePath === '/auth/login' ? 10 : 60;
     if (current.count >= limit) {
       response.status(429).json({ statusCode: 429, code: 'RATE_LIMITED', message: 'Demasiadas solicitudes.' });
       return;

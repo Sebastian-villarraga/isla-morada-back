@@ -33,6 +33,7 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(PublicRateLimitMiddleware).forRoutes(
       { path: 'availability', method: RequestMethod.GET },
+      { path: 'availability/dates', method: RequestMethod.GET },
       { path: 'reservations', method: RequestMethod.POST },
       { path: 'auth/login', method: RequestMethod.POST },
     );

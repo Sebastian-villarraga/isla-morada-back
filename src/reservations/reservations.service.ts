@@ -146,7 +146,7 @@ export class ReservationsService {
   async getPublic(id: string) {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
-      include: { customer: true, operatingDay: true, schedule: true },
+      include: { operatingDay: true, schedule: true },
     });
     if (!reservation) throw this.notFound();
     return this.publicReservation(reservation);

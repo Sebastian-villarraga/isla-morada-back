@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { OperatingDaysModule } from '../operating-days/operating-days.module';
 import { AvailabilityController } from './availability.controller';
 import { ReservationsController } from './reservations.controller';
 import { ReservationsService } from './reservations.service';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, OperatingDaysModule],
   controllers: [ReservationsController, AvailabilityController],
   providers: [ReservationsService],
   exports: [ReservationsService],

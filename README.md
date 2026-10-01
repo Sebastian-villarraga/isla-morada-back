@@ -51,7 +51,8 @@ Estas credenciales son únicamente para desarrollo; cámbialas antes de cualquie
 
 ## API
 
-Swagger: `http://localhost:3000/api/docs`.
+El prefijo global de la API es `/api`. Swagger: `http://localhost:3001/api/docs`.
+Con el frontend local en el puerto 3000, configura `PORT=3001` y `FRONTEND_URL=http://localhost:3000,...` en `.env`.
 
 | Grupo | Rutas principales | Acceso |
 |---|---|---|
@@ -60,13 +61,22 @@ Swagger: `http://localhost:3000/api/docs`.
 | Customers | `GET /customers`, `GET /customers/:id` | ADMIN, RESERVAS, HOST |
 | Operating days | `GET/POST /operating-days`, `GET/PATCH /operating-days/:id` | ADMIN, RESERVAS |
 | Schedules | `GET/POST /schedules`, `GET/PATCH /schedules/:id`, `PATCH /schedules/:id/open`, `PATCH /schedules/:id/close` | ADMIN, RESERVAS |
-| Availability | `GET /availability?date=YYYY-MM-DD&pax=4` | Público |
-| Reservations | `POST /reservations`, `GET /reservations/:id` | Público; el detalle público contiene solo datos no sensibles |
+| Calendar | `GET /availability/dates` | Público; devuelve un array de strings `YYYY-MM-DD`, solo días OPEN desde hoy en Bogotá, orden ascendente |
+| Availability | `GET /availability?date=YYYY-MM-DD&pax=4` | Público; horarios abiertos, capacidad y PAX disponibles, sin datos de clientes |
+| Reservations | `POST /reservations`, `GET /reservations/:id` | Público; creación devuelve ID/código/estado/fecha/hora/PAX; GET de confirmación solo devuelve esos campos públicos |
 | Reservation operations | `GET /reservations`, `/reservations/today`, `GET /reservations/:id/internal`, `PATCH /reservations/:id`, `PATCH /reservations/:id/cancel`, `POST /reservations/:id/{arrival,entry,lost,notify-availability}` | Host/Reservas/Admin según operación |
 | Waitlist | `GET/POST /waitlist`, `GET/PATCH /waitlist/:id`, `POST /waitlist/:id/notify`, `PATCH /waitlist/:id/cancel` | HOST, RESERVAS, ADMIN |
 | Settings | `GET/PATCH /settings` | ADMIN |
 | Audit | `GET /audit-logs` | ADMIN |
 | Notifications | `GET /notifications`, `POST /notifications/:id/retry` | ADMIN, RESERVAS |
+
+`GET /reservations/:id` es público para recuperar la confirmación; no incluye nombre, teléfono, email, observaciones ni historial.
+
+### CORS
+
+`FRONTEND_URL` acepta una lista separada por comas de orígenes exactos: por ejemplo `http://localhost:3000,https://tu-dominio.vercel.app,https://preview-aprobado.vercel.app`. Incluye explícitamente cada preview de Vercel que quieras autorizar; no se aceptan comodines en producción. Las solicitudes sin encabezado `Origin` (por ejemplo, llamadas de servidor a servidor) no usan CORS como mecanismo de autenticación.
+
+Errores HTTP documentados para las rutas públicas: `400` validación/fecha o UUID inválido, `404` día/horario/reserva inexistente, `409` día u horario cerrado o capacidad agotada (`SCHEDULE_CAPACITY_EXCEEDED`), y `500` error interno. La capacidad se vuelve a validar transaccionalmente al crear la reserva.
 
 Los endpoints internos usan JWT Bearer. HOST no puede administrar usuarios, roles ni settings. Los DTOs rechazan campos desconocidos y validan UUID, email, teléfono, PAX, fechas y estados.
 

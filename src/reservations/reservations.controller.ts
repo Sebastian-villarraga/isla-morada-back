@@ -10,7 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -30,6 +30,27 @@ export class ReservationsController {
   constructor(private readonly reservations: ReservationsService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Crear una reserva pública con capacidad verificada transaccionalmente' })
+  @ApiResponse({
+    status: 201,
+    description: 'Reserva confirmada. El código lo genera el backend.',
+    schema: {
+      type: 'object',
+      required: ['id', 'code', 'status', 'pax', 'date', 'startTime'],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        code: { type: 'string', example: 'A27' },
+        status: { type: 'string', enum: ['CONFIRMED'] },
+        pax: { type: 'integer', example: 4 },
+        date: { type: 'string', format: 'date', example: '2026-10-03' },
+        startTime: { type: 'string', example: '12:30' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'El body o sus campos no son válidos.' })
+  @ApiResponse({ status: 404, description: 'La fecha no es operativa o el horario no pertenece a ella.' })
+  @ApiResponse({ status: 409, description: 'Día/horario cerrado o capacidad agotada. `SCHEDULE_CAPACITY_EXCEEDED`.' })
+  @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   create(@Body() dto: CreateReservationDto) {
     return this.reservations.create(dto);
   }
@@ -59,6 +80,26 @@ export class ReservationsController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Consultar una confirmación con campos públicos mínimos' })
+  @ApiResponse({
+    status: 200,
+    description: 'No incluye teléfono, email, nombre, observaciones, datos internos ni historial.',
+    schema: {
+      type: 'object',
+      required: ['id', 'code', 'status', 'pax', 'date', 'startTime'],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        code: { type: 'string', example: 'A27' },
+        status: { type: 'string', example: 'CONFIRMED' },
+        pax: { type: 'integer', example: 4 },
+        date: { type: 'string', format: 'date', example: '2026-10-03' },
+        startTime: { type: 'string', example: '12:30' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'El ID no es un UUID válido.' })
+  @ApiResponse({ status: 404, description: 'Reserva no encontrada.' })
+  @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   getPublic(@Param('id', ParseUUIDPipe) id: string) {
     return this.reservations.getPublic(id);
   }

@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { OperatingDayStatus, PrismaClient, ReservationStatus, ScheduleStatus, UserRole, WaitlistStatus } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
+import { OperatingDaysService } from '../src/operating-days/operating-days.service';
 import { ReservationsService } from '../src/reservations/reservations.service';
 import { CreateReservationDto } from '../src/reservations/dto/create-reservation.dto';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -17,6 +18,7 @@ describe('reservation concurrency (PostgreSQL)', () => {
   );
   const notifications = new NotificationsService(prisma as PrismaService, new ConfigService({}));
   const waitlist = new WaitlistService(prisma as PrismaService, notifications);
+  const operatingDays = new OperatingDaysService(prisma as PrismaService);
   const createdDayIds: string[] = [];
   let prefixIndex = 0;
 
@@ -70,6 +72,19 @@ describe('reservation concurrency (PostgreSQL)', () => {
     expect(new Set(codes).size).toBe(10);
   });
 
+  it('lists future OPEN operating dates without exposing schedule details', async () => {
+    const context = await createContext(200);
+    const openDates = await operatingDays.publicDates();
+    expect(openDates).toContain(context.date);
+
+    const closedContext = await createContext(1);
+    await prisma.schedule.updateMany({ where: { operatingDayId: closedContext.dayId }, data: { status: ScheduleStatus.CLOSED } });
+    await prisma.operatingDay.update({ where: { id: closedContext.dayId }, data: { status: OperatingDayStatus.CLOSED } });
+    const datesAfterClosing = await operatingDays.publicDates();
+    expect(datesAfterClosing).not.toContain(closedContext.date);
+    expect(datesAfterClosing.every((date) => date >= new Date().toISOString().slice(0, 10))).toBe(true);
+  });
+
   it('authenticates seeded internal users and rejects an incorrect password', async () => {
     const auth = new AuthService(
       prisma as PrismaService,
@@ -86,6 +101,10 @@ describe('reservation concurrency (PostgreSQL)', () => {
     const context = await createContext(5);
     const host = await prisma.user.findUniqueOrThrow({ where: { email: 'host@islamorada.local' } });
     const cancelled = await reservations.create(request(context, 4, 1, context.scheduleIds[0]));
+    const publicConfirmation = await reservations.getPublic(cancelled.id);
+    expect(Object.keys(publicConfirmation).sort()).toEqual(['code', 'date', 'id', 'pax', 'startTime', 'status']);
+    expect(publicConfirmation.id).toBe(cancelled.id);
+    expect(publicConfirmation.code).toBe(cancelled.code);
     await reservations.cancel(cancelled.id, host.id);
     const afterCancellation = await prisma.reservation.aggregate({
       where: { scheduleId: context.scheduleIds[0], status: { in: [ReservationStatus.CONFIRMED, ReservationStatus.ARRIVED, ReservationStatus.ENTERED] } },
