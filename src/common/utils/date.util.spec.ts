@@ -1,4 +1,4 @@
-import { bogotaToday, localDateToUtcDate, scheduledTimeAsUtc } from './date.util';
+import { bogotaToday, isScheduleBookable, localDateToUtcDate, scheduledTimeAsUtc } from './date.util';
 
 describe('date utilities', () => {
   it('stores a local calendar date without shifting its day', () => {
@@ -11,5 +11,10 @@ describe('date utilities', () => {
 
   it('returns the current business date in Bogota', () => {
     expect(bogotaToday(new Date('2026-10-03T03:00:00.000Z'))).toBe('2026-10-02');
+  });
+
+  it('rejects a reservation exactly at the five-minute closing boundary', () => {
+    expect(isScheduleBookable('2026-10-03', '12:00', new Date('2026-10-03T16:55:00.000Z'))).toBe(false);
+    expect(isScheduleBookable('2026-10-03', '12:00', new Date('2026-10-03T16:54:59.999Z'))).toBe(true);
   });
 });

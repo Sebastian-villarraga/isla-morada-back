@@ -16,3 +16,7 @@ export function scheduledTimeAsUtc(date: string, time: string): Date {
   const [hour, minute] = time.split(':').map(Number);
   return new Date(Date.UTC(year, month - 1, day, hour + 5, minute));
 }
+
+export function isScheduleBookable(date: string, time: string, now = new Date()): boolean {
+  return now.getTime() < scheduledTimeAsUtc(date, time).getTime() - 5 * 60_000;
+}

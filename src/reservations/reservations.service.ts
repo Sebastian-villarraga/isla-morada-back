@@ -13,7 +13,8 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { bogotaToday, localDateToUtcDate, scheduledTimeAsUtc } from '../common/utils/date.util';
+import { OperatingDaysService } from '../operating-days/operating-days.service';
+import { bogotaToday, isScheduleBookable, localDateToUtcDate, scheduledTimeAsUtc } from '../common/utils/date.util';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { MarkLostDto } from './dto/mark-lost.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
@@ -26,7 +27,11 @@ const capacityStatuses: ReservationStatus[] = [
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly operatingDays: OperatingDaysService,
+  ) {}
 
   async create(dto: CreateReservationDto, actorId?: string) {
     const day = await this.prisma.operatingDay.findUnique({ where: { date: localDateToUtcDate(dto.date) } });
@@ -49,6 +54,9 @@ export class ReservationsService {
         throw new ConflictException({ code: 'SCHEDULE_CLOSED', message: 'El horario está cerrado' });
       }
 
+      if (!isScheduleBookable(dto.date, currentSchedule.startTime)) {
+        throw new ConflictException({ code: 'SCHEDULE_CLOSED_BY_TIME', message: 'Schedule closes five minutes before its start time' });
+      }
       const sum = await tx.reservation.aggregate({
         where: { scheduleId: currentSchedule.id, status: { in: capacityStatuses } },
         _sum: { pax: true },
@@ -126,6 +134,7 @@ export class ReservationsService {
   }
 
   async availability(date: string, pax: number) {
+    await this.operatingDays.ensureWeekend(date);
     const day = await this.prisma.operatingDay.findUnique({
       where: { date: localDateToUtcDate(date) },
       include: { schedules: { where: { status: ScheduleStatus.OPEN }, orderBy: { startTime: 'asc' } } },
@@ -138,9 +147,11 @@ export class ReservationsService {
       });
       const reservedPax = sum._sum.pax ?? 0;
       const availablePax = Math.max(0, schedule.capacity - reservedPax);
+      const bookable = isScheduleBookable(date, schedule.startTime);
+      if (!bookable || availablePax < pax) return null;
       return { id: schedule.id, startTime: schedule.startTime, capacity: schedule.capacity, reservedPax, availablePax, status: schedule.status };
     }));
-    return { date, schedules: schedules.filter((schedule) => schedule.availablePax >= pax) };
+    return { date, schedules: schedules.filter((schedule): schedule is NonNullable<typeof schedule> => schedule !== null) };
   }
 
   async getPublic(id: string) {

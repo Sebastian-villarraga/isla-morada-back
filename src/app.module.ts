@@ -12,6 +12,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CustomersModule } from './customers/customers.module';
+import { MenuModule } from './menu/menu.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CustomersModule } from './customers/customers.module';
     AuthModule,
     UsersModule,
     CustomersModule,
+    MenuModule,
     OperatingDaysModule,
     SchedulesModule,
     SettingsModule,

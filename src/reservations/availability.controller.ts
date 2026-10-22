@@ -2,6 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { OperatingDaysService } from '../operating-days/operating-days.service';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { AvailableDaysQueryDto } from '../operating-days/dto/available-days-query.dto';
 import { ReservationsService } from './reservations.service';
 
 @ApiTags('availability')
@@ -20,8 +21,8 @@ export class AvailabilityController {
     schema: { type: 'array', items: { type: 'string', format: 'date', example: '2026-10-03' } },
   })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  dates(): Promise<string[]> {
-    return this.operatingDays.publicDates();
+  dates(@Query() query: AvailableDaysQueryDto): Promise<string[]> {
+    return this.operatingDays.publicDates(query.from, query.to);
   }
 
   @Get()
