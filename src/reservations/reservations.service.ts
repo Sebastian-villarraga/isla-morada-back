@@ -87,6 +87,16 @@ export class ReservationsService {
       const customer = existingCustomer
         ? await tx.customer.update({ where: { id: existingCustomer.id }, data: customerData })
         : await tx.customer.create({ data: customerData });
+      const existingReservation = await tx.reservation.findFirst({
+        where: { customerId: customer.id, operatingDayId: currentDay.id },
+        select: { id: true, code: true },
+      });
+      if (existingReservation) {
+        throw new ConflictException({
+          code: 'CUSTOMER_ALREADY_HAS_RESERVATION_FOR_DAY',
+          message: 'Esta persona ya tiene una reserva para la fecha seleccionada.',
+        });
+      }
       const reservation = await tx.reservation.create({
         data: {
           code: `${sequence.prefix}${sequence.reservationSequence}`,

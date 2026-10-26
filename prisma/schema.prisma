@@ -255,3 +255,17 @@ model MenuItem {
 
   @@index([available, category, sortOrder])
 }
+
+model EventRequest {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(120)
+  email       String   @db.VarChar(254)
+  phone       String   @db.VarChar(30)
+  eventType   String   @db.VarChar(100)
+  eventDate   DateTime? @db.Date
+  guests      Int
+  budget      Int?
+  notes       String?  @db.VarChar(2000)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  @@index([createdAt])
+}

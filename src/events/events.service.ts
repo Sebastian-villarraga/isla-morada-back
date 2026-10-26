@@ -1,0 +1,2 @@
+import { Injectable } from '@nestjs/common'; import { PrismaService } from '../prisma/prisma.service'; import { CreateEventRequestDto } from './events.dto';
+@Injectable() export class EventsService { constructor(private readonly prisma: PrismaService) {} create(dto: CreateEventRequestDto) { return this.prisma.eventRequest.create({ data: { ...dto, eventDate: dto.eventDate ? new Date(`${dto.eventDate}T00:00:00.000Z`) : null } }); } list() { return this.prisma.eventRequest.findMany({ orderBy: { createdAt: 'desc' } }); } }

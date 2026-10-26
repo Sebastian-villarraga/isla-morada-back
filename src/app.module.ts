@@ -13,6 +13,7 @@ import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CustomersModule } from './customers/customers.module';
 import { MenuModule } from './menu/menu.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MenuModule } from './menu/menu.module';
     UsersModule,
     CustomersModule,
     MenuModule,
+    EventsModule,
     OperatingDaysModule,
     SchedulesModule,
     SettingsModule,

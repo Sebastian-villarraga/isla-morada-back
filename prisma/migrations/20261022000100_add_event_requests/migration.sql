@@ -1,0 +1,2 @@
+CREATE TABLE "EventRequest" ("id" UUID NOT NULL DEFAULT gen_random_uuid(), "name" VARCHAR(120) NOT NULL, "email" VARCHAR(254) NOT NULL, "phone" VARCHAR(30) NOT NULL, "eventType" VARCHAR(100) NOT NULL, "eventDate" DATE, "guests" INTEGER NOT NULL, "budget" INTEGER, "notes" VARCHAR(2000), "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "EventRequest_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "EventRequest_createdAt_idx" ON "EventRequest"("createdAt");
